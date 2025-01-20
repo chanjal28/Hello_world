@@ -2,7 +2,7 @@
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 # More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
 
-name: Build and deploy Python app to Azure Web App - Appservice-Ra-python
+name: Build and deploy Python app using AWS Elastic Beanstalk - ARN
 
 on:
   push:
@@ -45,19 +45,23 @@ jobs:
     needs: build
     environment:
       name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    
 
     steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v3
-        with:
-          name: python-app
-          path: .
-          
-      - name: 'Deploy to Azure Web App'
-        uses: azure/webapps-deploy@v2
-        id: deploy-to-webapp
-        with:
-          app-name: 'Appservice-Ra-python'
-          slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FD66B9FD1F564083AE3A502D70E9A602 }}
+    - name: Download artifact from build job
+      uses: actions/download-artifact@v3
+      with:
+        name: python-app
+        path: .
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        role-to-assume: arn:aws:iam::586794455071:role/githubactions-deployment
+        aws-region: ap-south-1
+
+    - name: Deploy to Elastic Beanstalk
+      run: |
+        zip -r app.zip . 
+        aws elasticbeanstalk create-application-version --application-name MyPythonApp --version-label v1.0 --source-bundle S3Bucket=mybucket,S3Key=app.zip
+        aws elasticbeanstalk update-environment --environment-name MyEnvironment --version-label v1.0
